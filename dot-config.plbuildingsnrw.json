@@ -1,0 +1,5 @@
+{
+	"dbhost": "dbi:Pg:dbname=hu_nrw;host=localhost",
+	"dbuser": "db-user",
+	"dbpass": "db-password"
+}

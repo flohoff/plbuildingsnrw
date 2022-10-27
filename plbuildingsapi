@@ -1,0 +1,86 @@
+#!/usr/bin/perl -w
+
+
+
+use strict;
+use open ':std', ':encoding(UTF-8)';
+use utf8;
+use Mojolicious::Lite;
+use URI;
+use DBI;
+use JSON;
+use Carp;
+use FindBin qw($Bin);
+use lib $FindBin::Bin;
+use File::Slurp qw/read_file/;
+use Encode;
+use POSIX;
+use Data::Dumper;
+use MultiPolygon;
+
+my $config;
+my $configfile="$Bin/.config.plbuildingsnrw.json";
+
+sub db_open {
+	my $dbh=DBI->connect_cached($config->{dbhost}, $config->{dbuser}, $config->{dbpass});
+
+	if (!defined($dbh)) {
+		return undef;
+	}
+
+	$dbh->{pg_enable_utf8} = 1;
+	return $dbh;
+}
+
+sub outline_fetch {
+	my ($lat, $lon, $dist) = @_;
+
+	my $dbh=db_open();
+	my $sql=$dbh->prepare("
+		select  st_asgeojson(ST_Transform(wkb_geometry, 4326)) mp
+		from    hu_nrw
+		where   ST_Intersects(wkb_geometry,
+				ST_Transform(
+					ST_SetSRID(
+						ST_MakePoint(?, ?),
+						4326),
+					5652)
+				)
+		limit 1
+	") or die $DBI::errstr;
+
+	$sql->execute($lon, $lat) or die $DBI::errstr;
+	my $row=$sql->fetchrow_hashref();
+	$sql->finish();
+
+	if (defined($row) && defined($row->{mp})) {
+		my $mp=new MultiPolygon($row->{mp});
+		return $mp;
+	}
+
+	return undef;
+}
+
+# /plbuildingsnrw/v1/?lat=51.75822416981553&lon=18.052758112155754&data_source=bdot&search_distance=3.0
+get '/v1' => sub {
+	my $self = shift;
+	my $lat=$self->param("lat");
+	my $lon=$self->param("lon");
+	my $dist=$self->param("search_distance");
+	
+	my $mp=outline_fetch($lat, $lon, $dist);
+
+	if (defined($mp)) {
+		#print $mp->osmxml();
+		$self->render(data => $mp->osmxml(), format => "xml");
+	} else {
+		$self->render(status => 404);
+	}
+};
+
+$config=from_json(read_file($configfile), { utf8  => 1 } );
+app->renderer->default_format('xml');
+app->start("fastcgi");
+
+#app->start();
+
