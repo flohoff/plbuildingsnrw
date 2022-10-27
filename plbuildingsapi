@@ -37,7 +37,12 @@ sub outline_fetch {
 
 	my $dbh=db_open();
 	my $sql=$dbh->prepare("
-		select  st_asgeojson(ST_Transform(wkb_geometry, 4326)) mp
+		select  ogc_fid,
+			ags,
+			oi,
+			gfk,
+			aktualitae,
+			st_asgeojson(ST_Transform(wkb_geometry, 4326)) geojson
 		from    hu_nrw
 		where   ST_Intersects(wkb_geometry,
 				ST_Transform(
@@ -53,8 +58,8 @@ sub outline_fetch {
 	my $row=$sql->fetchrow_hashref();
 	$sql->finish();
 
-	if (defined($row) && defined($row->{mp})) {
-		my $mp=new MultiPolygon($row->{mp});
+	if (defined($row)) {
+		my $mp=new MultiPolygon($row);
 		return $mp;
 	}
 
