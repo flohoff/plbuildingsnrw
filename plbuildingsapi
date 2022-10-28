@@ -74,7 +74,7 @@ get '/v1' => sub {
 	my $lon=$self->param("lon");
 
 	if (!defined($lat) || !defined($lon)) {
-		return $self->render(template => "parametermissing", format => "html");
+		return $self->render(template => "parametermissing", format => "html", status => 404);
 	}
 	
 	my $mp=outline_fetch($lat, $lon);
