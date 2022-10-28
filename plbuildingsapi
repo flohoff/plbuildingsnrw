@@ -33,7 +33,7 @@ sub db_open {
 }
 
 sub outline_fetch {
-	my ($lat, $lon, $dist) = @_;
+	my ($lat, $lon) = @_;
 
 	my $dbh=db_open();
 	my $sql=$dbh->prepare("
@@ -69,17 +69,20 @@ sub outline_fetch {
 # /plbuildingsnrw/v1/?lat=51.75822416981553&lon=18.052758112155754&data_source=bdot&search_distance=3.0
 get '/v1' => sub {
 	my $self = shift;
+
 	my $lat=$self->param("lat");
 	my $lon=$self->param("lon");
-	my $dist=$self->param("search_distance");
+
+	if (!defined($lat) || !defined($lon)) {
+		return $self->render(template => "parametermissing", format => "html");
+	}
 	
-	my $mp=outline_fetch($lat, $lon, $dist);
+	my $mp=outline_fetch($lat, $lon);
 
 	if (defined($mp)) {
-		#print $mp->osmxml();
-		$self->render(data => $mp->osmxml(), format => "xml");
+		return $self->render(data => $mp->osmxml(), format => "xml");
 	} else {
-		$self->render(status => 404);
+		return $self->render(data => '<?xml version="1.0"?><osm version="0.6"/>', format => "xml");
 	}
 };
 
@@ -89,3 +92,8 @@ app->start("fastcgi");
 
 #app->start();
 
+__DATA__
+@@ parametermissing.html.ep
+Need lat lon
+@@ not_found.html.ep
+Not found
