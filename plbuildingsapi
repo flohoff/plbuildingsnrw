@@ -80,7 +80,26 @@ get '/v1' => sub {
 	my $mp=outline_fetch($lat, $lon);
 
 	if (defined($mp)) {
-		return $self->render(data => $mp->osmxml(), format => "xml");
+		return $self->render(data => $mp->osmxml(undef), format => "xml");
+	} else {
+		return $self->render(data => '<?xml version="1.0"?><osm version="0.6"/>', format => "xml");
+	}
+};
+
+get '/v2/debug/' => sub {
+	my $self = shift;
+
+	my $lat=$self->param("lat");
+	my $lon=$self->param("lon");
+
+	if (!defined($lat) || !defined($lon)) {
+		return $self->render(template => "parametermissing", format => "html", status => 404);
+	}
+	
+	my $mp=outline_fetch($lat, $lon);
+
+	if (defined($mp)) {
+		return $self->render(data => $mp->osmxml(1), format => "xml");
 	} else {
 		return $self->render(data => '<?xml version="1.0"?><osm version="0.6"/>', format => "xml");
 	}
