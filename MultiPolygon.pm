@@ -63,15 +63,29 @@ package MultiPolygon;
 		#printf("Outer: %d\n", scalar @{$mp});
 	}
 
+	# Unter Gebäudefunktion
+	# https://www.bezreg-koeln.nrw.de/brk_internet/geobasis/liegenschaftskataster/alkis/vorgaben/pflichtenheft_03/anlage_03_alkis_nrw_ok_max_v6_0_1.htm
 	my $funktion2type={
 		'0' => { 'building' => 'yes' },
+		'1313' => { 'building' => 'shed' },	# Gartenhaus
+		'1610' => { 'building' => 'roof', 'layer' => '1' },
+		'1611' => { 'building' => 'carport' },
 		'2463' => { 'building' => 'garage' },
 		'2523' => { 'building' => 'yes', 'power' => 'substation' },
-		'2723' => { 'building' => 'shed' }
+		'2700' => { 'building' => 'farm_auxiliary' },	# Gebäude für Land- und Forstwirtschaft
+		'2720' => { 'building' => 'farm_auxiliary' },	# Land- und forstwirtschaftliches Betriebsgebäude
+		'2721' => { 'building' => 'barn' },	# Scheune
+		'2723' => { 'building' => 'shed' },	# Schuppen
+		'2724' => { 'building' => 'stable' },	# 'Stall' ist ein Gebäude, in dem Tiere untergebracht sind.
+		'2726' => { 'building' => 'stable' },	# Scheune und Stall
+		'2727' => { 'building' => 'stable' },	# Stall für Tiergroßhaltung
+		'2740' => { 'building' => 'greenhouse' },	# Treibhaus, Gewächshaus
+		'2741' => { 'building' => 'greenhouse' },	# Treibhaus, Gewächshaus
+		'2742' => { 'building' => 'greenhouse' },	# Treibhaus, Gewächshaus
 	};
 
 	sub tags {
-		my ($self) = @_;
+		my ($self, $debug) = @_;
 
 		my $gfk=$self->{row}{gfk};
 		my ($dummy, $funktion) = split(/_/, $gfk);
@@ -87,11 +101,23 @@ package MultiPolygon;
 					$k, $t->{$k});
 		}
 
+		if (defined($debug)) {
+			foreach my $k ( keys %{$self->{row}} ) {
+				my $v=$self->{row}{$k};
+
+				next if ($v =~ /POLYGON/i);
+				$v=~s/["<>\/]//g;
+
+				push @tags, sprintf("\t<tag k=\"debug:%s\" v=\"%s\"/>",
+					$k, $self->{row}{$k});
+			}
+		}
+
 		return @tags;
 	}
 
 	sub osmxml {
-		my ($self) = @_;
+		my ($self, $debug) = @_;
 
 		my @nodes=map {
 			sprintf('<node id="%d" lat="%f" lon="%f"/>',
@@ -105,7 +131,7 @@ package MultiPolygon;
 			sprintf("<way id=\"%s\">\n%s\n%s\n</way>\n",
 				$self->{nid}--,
 				join("\n", @nodes),
-				join("\n", $self->tags())
+				join("\n", $self->tags($debug))
 				);
 		} @{$self->{rings}};
 
