@@ -5,6 +5,7 @@ package MultiPolygon;
 	use JSON;
 	use Data::Dumper;
 	use Geo::WKT;
+	use Mojo::Log;
 
 	sub new {
 		my ($class, $row) = @_;
@@ -13,11 +14,13 @@ package MultiPolygon;
 			row => $row,
 			nid => -1,
 			nodes => {},
+			tags => {},
 			parsed => from_json($row->{geojson}),
+			log => Mojo::Log->new
 		};
 		bless $self, $class;
 
-		$self->_parse($row->{geojson});
+		$self->_parse();
 
 		return $self;
 	}
@@ -26,7 +29,7 @@ package MultiPolygon;
 
 	sub node_new {
 		my ($self, $pos) = @_;
-	
+
 		my $posid=sprintf("%s-%s", $pos->[0], $pos->[1]);
 
 		if (defined($self->{nodes}{$posid})) {
@@ -45,10 +48,14 @@ package MultiPolygon;
 	}
 
 	sub _parse {
-		my ($self, $string) = @_;
+		my ($self) = @_;
 
 		my $geom=$self->{parsed}{coordinates};
-		my $mp=@{$geom}[0];
+
+		my $mp=$geom;
+		if ($self->{parsed}{type} =~ /MultiPolygon/) {
+			$mp=@{$geom}[0];
+		}
 
 		for my $ring ( @{$mp} ) {
 			my @r;
@@ -59,46 +66,25 @@ package MultiPolygon;
 			push @{$self->{rings}}, \@r;
 		}
 
-		#printf("Count: %d\n", scalar @{$geom});
-		#printf("Outer: %d\n", scalar @{$mp});
+		$self->{log}->debug("Count: %d\n", scalar @{$geom});
+		$self->{log}->debug("Outer: %d\n", scalar @{$mp});
 	}
 
-	# Unter Gebäudefunktion
-	# https://www.bezreg-koeln.nrw.de/brk_internet/geobasis/liegenschaftskataster/alkis/vorgaben/pflichtenheft_03/anlage_03_alkis_nrw_ok_max_v6_0_1.htm
-	my $funktion2type={
-		'0' => { 'building' => 'yes' },
-		'1313' => { 'building' => 'shed' },	# Gartenhaus
-		'1610' => { 'building' => 'roof', 'layer' => '1' },
-		'1611' => { 'building' => 'carport' },
-		'2463' => { 'building' => 'garage' },
-		'2523' => { 'building' => 'yes', 'power' => 'substation' },
-		'2700' => { 'building' => 'farm_auxiliary' },	# Gebäude für Land- und Forstwirtschaft
-		'2720' => { 'building' => 'farm_auxiliary' },	# Land- und forstwirtschaftliches Betriebsgebäude
-		'2721' => { 'building' => 'barn' },	# Scheune
-		'2723' => { 'building' => 'shed' },	# Schuppen
-		'2724' => { 'building' => 'stable' },	# 'Stall' ist ein Gebäude, in dem Tiere untergebracht sind.
-		'2726' => { 'building' => 'stable' },	# Scheune und Stall
-		'2727' => { 'building' => 'stable' },	# Stall für Tiergroßhaltung
-		'2740' => { 'building' => 'greenhouse' },	# Treibhaus, Gewächshaus
-		'2741' => { 'building' => 'greenhouse' },	# Treibhaus, Gewächshaus
-		'2742' => { 'building' => 'greenhouse' },	# Treibhaus, Gewächshaus
-	};
+	sub tags_add {
+		my ($self, $tags) = @_;
+
+		foreach my $k ( keys %{$tags} ) {
+			$self->{tags}{$k}=$tags->{$k};
+		}
+	}
 
 	sub tags {
 		my ($self, $debug) = @_;
 
-		my $gfk=$self->{row}{gfk};
-		my ($dummy, $funktion) = split(/_/, $gfk);
-
-		my $t=$funktion2type->{$funktion};
-		if (!defined($t)) {
-			$t=$funktion2type->{0};
-		}
-
 		my @tags;
-		foreach my $k ( keys %{$t} ) {
+		foreach my $k ( keys %{$self->{tags}} ) {
 			push @tags, sprintf("\t<tag k=\"%s\" v=\"%s\"/>",
-					$k, $t->{$k});
+					$k, $self->{tags}{$k});
 		}
 
 		if (defined($debug) && $debug) {
@@ -117,7 +103,7 @@ package MultiPolygon;
 	}
 
 	sub osmxml {
-		my ($self, $debug) = @_;
+		my ($self, $debug, $tags) = @_;
 
 		my @nodes=map {
 			sprintf('<node id="%d" lat="%f" lon="%f"/>',
@@ -131,7 +117,7 @@ package MultiPolygon;
 			sprintf("<way id=\"%s\">\n%s\n%s\n</way>\n",
 				$self->{nid}--,
 				join("\n", @nodes),
-				join("\n", $self->tags($debug))
+				join("\n", $self->tags($debug, $tags))
 				);
 		} @{$self->{rings}};
 

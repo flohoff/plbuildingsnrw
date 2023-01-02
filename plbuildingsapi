@@ -1,10 +1,12 @@
 #!/usr/bin/perl -w
 
-
-
+use utf8;
 use strict;
 use open ':std', ':encoding(UTF-8)';
-use utf8;
+
+no warnings 'experimental::smartmatch';
+use experimental 'smartmatch';
+
 use Mojolicious::Lite;
 use URI;
 use DBI;
@@ -16,7 +18,10 @@ use File::Slurp qw/read_file/;
 use Encode;
 use POSIX;
 use Data::Dumper;
+
+
 use MultiPolygon;
+use ALKISGFK2OSMTags;
 
 my $config;
 my $configfile="$Bin/.config.plbuildingsnrw.json";
@@ -60,6 +65,24 @@ sub sql_string_build {
 	return $sqlstring
 }
 
+sub alkisfunktion {
+	my ($row, $mp, $value) = @_;
+
+	$mp->{log}->debug(sprintf("Alkisfunktion %s\n", $value));
+
+	my $funktion=$row->{$value};
+
+	$mp->{log}->debug(sprintf("Funktion %s", $funktion // ""));
+
+	if (!defined($funktion)) {
+		return;
+	}
+
+	my $tags=ALKISGFK2OSMTags::totag($funktion);
+
+	$mp->tags_add($tags);
+}
+
 sub outline_fetch {
 	my ($lat, $lon, $datasetname, $debug) = @_;
 
@@ -78,12 +101,26 @@ sub outline_fetch {
 	my $row=$sql->fetchrow_hashref();
 	$sql->finish();
 
-	if (defined($row)) {
-		my $mp=new MultiPolygon($row);
-		return $mp;
+	if (!defined($row)) {
+		return undef;
 	}
 
-	return undef;
+	my $mp=new MultiPolygon($row);
+
+	foreach my $k ( keys %{$dataset->{postprocess}} ) {
+		my $v=$dataset->{postprocess}{$k};
+
+		$mp->{log}->debug("Postprocess $k $v\n");
+
+		given($k) {
+			when("alkisfunktion") {
+				alkisfunktion($row, $mp, $v);
+			}
+		}
+
+	}
+
+	return $mp;
 }
 
 sub v1_fetch {
