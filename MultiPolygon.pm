@@ -101,7 +101,7 @@ package MultiPolygon;
 					$k, $t->{$k});
 		}
 
-		if (defined($debug)) {
+		if (defined($debug) && $debug) {
 			foreach my $k ( keys %{$self->{row}} ) {
 				my $v=$self->{row}{$k};
 

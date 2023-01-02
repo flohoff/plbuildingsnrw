@@ -1,5 +1,13 @@
 {
 	"dbhost": "dbi:Pg:dbname=hu_nrw;host=localhost",
 	"dbuser": "db-user",
-	"dbpass": "db-password"
+	"dbpass": "db-password",
+	"datasets": {
+		"nrw": {
+			"table": "hu_nrw",
+			"geometrycolumn": "wkb_geometry",
+			"debugcolumns": [ "ogc_fid", "ags", "oi", "gfk", "aktualitae" ],
+			"srid": "5652"
+		}
+	}
 }

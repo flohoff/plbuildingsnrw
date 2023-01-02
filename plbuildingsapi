@@ -32,28 +32,48 @@ sub db_open {
 	return $dbh;
 }
 
-sub outline_fetch {
-	my ($lat, $lon) = @_;
+sub sql_string_build {
+	my ($dataset) = @_;
 
-	my $dbh=db_open();
-	my $sql=$dbh->prepare("
-		select  ogc_fid,
-			ags,
-			oi,
-			gfk,
-			aktualitae,
-			st_asgeojson(ST_Transform(wkb_geometry, 4326)) geojson
-		from    hu_nrw
-		where   ST_Intersects(wkb_geometry,
+	my $debugcolumns="";
+	if ($dataset->{debugcolumns}) {
+		$debugcolumns=join(",", @{$dataset->{debugcolumns}}) . ",";
+	}
+
+	my $sqlstring=sprintf("select %s
+			st_asgeojson(ST_Transform(%s, 4326)) geojson
+		from	%s
+		where   ST_Intersects(%s,
 				ST_Transform(
 					ST_SetSRID(
 						ST_MakePoint(?, ?),
 						4326),
-					5652)
+					%s)
 				)
-		limit 1
-	") or die $DBI::errstr;
+		limit 1",
+		$debugcolumns,
+		$dataset->{geometrycolumn},
+		$dataset->{table},
+		$dataset->{geometrycolumn},
+		$dataset->{srid});
 
+	return $sqlstring
+}
+
+sub outline_fetch {
+	my ($lat, $lon, $datasetname, $debug) = @_;
+
+	my $dataset=$config->{datasets}{$datasetname};
+
+	if (!defined($dataset)) {
+		return undef;
+	}
+
+	my $dbh=db_open();
+
+	my $sqlstring=sql_string_build($dataset);
+
+	my $sql=$dbh->prepare($sqlstring) or die $DBI::errstr;
 	$sql->execute($lon, $lat) or die $DBI::errstr;
 	my $row=$sql->fetchrow_hashref();
 	$sql->finish();
@@ -66,9 +86,8 @@ sub outline_fetch {
 	return undef;
 }
 
-# /plbuildingsnrw/v1/?lat=51.75822416981553&lon=18.052758112155754&data_source=bdot&search_distance=3.0
-get '/v1' => sub {
-	my $self = shift;
+sub v1_fetch {
+	my ($self, $dataset, $debug) = @_;
 
 	my $lat=$self->param("lat");
 	my $lon=$self->param("lon");
@@ -77,32 +96,43 @@ get '/v1' => sub {
 		return $self->render(template => "parametermissing", format => "html", status => 404);
 	}
 	
-	my $mp=outline_fetch($lat, $lon);
+	my $mp=outline_fetch($lat, $lon, $dataset, $debug);
 
 	if (defined($mp)) {
-		return $self->render(data => $mp->osmxml(undef), format => "xml");
+		return $self->render(data => $mp->osmxml($debug), format => "xml");
 	} else {
 		return $self->render(data => '<?xml version="1.0"?><osm version="0.6"/>', format => "xml");
 	}
+
+}
+
+# /plbuildingsnrw/v1/?lat=51.75822416981553&lon=18.052758112155754&data_source=bdot&search_distance=3.0
+get '/v1' => sub {
+	my $self = shift;
+
+	v1_fetch($self, "nrw", 0);
 };
 
 get '/v2/debug/' => sub {
 	my $self = shift;
 
-	my $lat=$self->param("lat");
-	my $lon=$self->param("lon");
+	v1_fetch($self, "nrw", 1);
+};
 
-	if (!defined($lat) || !defined($lon)) {
-		return $self->render(template => "parametermissing", format => "html", status => 404);
-	}
-	
-	my $mp=outline_fetch($lat, $lon);
+get '/v3/:dataset/debug/' => sub {
+	my $self = shift;
 
-	if (defined($mp)) {
-		return $self->render(data => $mp->osmxml(1), format => "xml");
-	} else {
-		return $self->render(data => '<?xml version="1.0"?><osm version="0.6"/>', format => "xml");
-	}
+	my $dataset=$self->param("dataset");
+
+	v1_fetch($self, $dataset, 1);
+};
+
+get '/v3/:dataset/' => sub {
+	my $self = shift;
+
+	my $dataset=$self->param("dataset");
+
+	v1_fetch($self, $dataset, 0);
 };
 
 $config=from_json(read_file($configfile), { utf8  => 1 } );
