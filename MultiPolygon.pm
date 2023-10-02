@@ -4,7 +4,7 @@ package MultiPolygon;
 	use strict;
 	use JSON;
 	use Data::Dumper;
-	use Geo::WKT;
+	use Geo::WKT::Simple;
 	use Mojo::Log;
 
 	sub new {
