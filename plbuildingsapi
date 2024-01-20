@@ -4,14 +4,15 @@ use utf8;
 use strict;
 use open ':std', ':encoding(UTF-8)';
 
-no warnings 'experimental::smartmatch';
-use experimental 'smartmatch';
+use feature 'signatures';
+no warnings 'experimental::signatures';
 
 use Mojolicious::Lite;
 use URI;
 use DBI;
-use JSON;
+use JSON qw/decode_json/;
 use Carp;
+use Encode qw/encode_utf8/;
 use FindBin qw($Bin);
 use lib $FindBin::Bin;
 use File::Slurp qw/read_file/;
@@ -68,7 +69,7 @@ sub sql_string_build {
 sub alkisfunktion {
 	my ($row, $mp, $value) = @_;
 
-	$mp->{log}->debug(sprintf("Alkisfunktion %s\n", $value));
+	$mp->{log}->debug(sprintf("Alkisfunktion %s", $value));
 
 	my $funktion=$row->{$value};
 
@@ -110,17 +111,50 @@ sub outline_fetch {
 	foreach my $k ( keys %{$dataset->{postprocess}} ) {
 		my $v=$dataset->{postprocess}{$k};
 
-		$mp->{log}->debug("Postprocess $k $v\n");
+		$mp->{log}->debug("Postprocess $k $v", $k, $v);
 
-		given($k) {
-			when("alkisfunktion") {
-				alkisfunktion($row, $mp, $v);
-			}
+		if ($k eq 'alkisfunktion') {
+			alkisfunktion($row, $mp, $v);
 		}
 
 	}
 
+	$mp->tags_add($dataset->{tags});
+
 	return $mp;
+}
+
+sub v3_fetch($self, $datasetname, $debug) {
+
+	my $lat=$self->param("lat");
+	my $lon=$self->param("lon");
+
+	if (!defined($lat) || !defined($lon)) {
+		return $self->render(template => "parametermissing", format => "html", status => 404);
+	}
+	
+	my $dataset=$config->{datasets}{$datasetname};
+	if (!defined($dataset)) {
+		return $self->render(data => '<?xml version="1.0"?><osm version="0.6" error="dataset unknown"/>', format => "xml");
+	}
+
+	if ($dataset->{type} eq 'database')	{
+		my $mp=outline_fetch($lat, $lon, $dataset, $debug);
+		if (defined($mp)) {
+			return $self->render(data => $mp->osmxml($debug), format => "xml");
+		}
+		return $self->render(data => '<?xml version="1.0"?><osm version="0.6" error="nothing found in dataset"/>', format => "xml");
+	} elsif ($dataset->{type} eq 'multi') {
+		foreach my $dset ( @{$dataset->{list}} ) {
+			my $mp=outline_fetch($lat, $lon, $dset, $debug);
+			if (defined($mp)) {
+				return $self->render(data => $mp->osmxml($debug), format => "xml");
+			}
+		}
+		return $self->render(data => '<?xml version="1.0"?><osm version="0.6" error="nothing found in multi"/>', format => "xml");
+	} 
+
+	return $self->render(data => '<?xml version="1.0"?><osm version="0.6" error="dataset type unknown"/>', format => "xml");
 }
 
 sub v1_fetch {
@@ -137,10 +171,9 @@ sub v1_fetch {
 
 	if (defined($mp)) {
 		return $self->render(data => $mp->osmxml($debug), format => "xml");
-	} else {
-		return $self->render(data => '<?xml version="1.0"?><osm version="0.6"/>', format => "xml");
 	}
 
+	return $self->render(data => '<?xml version="1.0"?><osm version="0.6" error="nothing found"/>', format => "xml");
 }
 
 # /plbuildingsnrw/v1/?lat=51.75822416981553&lon=18.052758112155754&data_source=bdot&search_distance=3.0
@@ -169,10 +202,10 @@ get '/v3/:dataset/' => sub {
 
 	my $dataset=$self->param("dataset");
 
-	v1_fetch($self, $dataset, 0);
+	v3_fetch($self, $dataset, 0);
 };
 
-$config=from_json(read_file($configfile), { utf8  => 1 } );
+$config=decode_json(encode_utf8(read_file($configfile)));
 app->renderer->default_format('xml');
 app->start("fastcgi");
 

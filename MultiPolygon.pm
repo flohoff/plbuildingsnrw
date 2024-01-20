@@ -66,8 +66,8 @@ package MultiPolygon;
 			push @{$self->{rings}}, \@r;
 		}
 
-		$self->{log}->debug("Count: %d\n", scalar @{$geom});
-		$self->{log}->debug("Outer: %d\n", scalar @{$mp});
+		$self->{log}->debug(sprintf("Count: %d", scalar @{$geom}));
+		$self->{log}->debug(sprintf("Outer: %d", scalar @{$mp}));
 	}
 
 	sub tags_add {

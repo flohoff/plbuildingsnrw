@@ -4,10 +4,21 @@
 	"dbpass": "db-password",
 	"datasets": {
 		"nrw": {
+			"type": "database",
 			"table": "hu_nrw",
 			"geometrycolumn": "wkb_geometry",
 			"debugcolumns": [ "ogc_fid", "ags", "oi", "gfk", "aktualitae" ],
-			"srid": "5652"
+			"postprocess": {
+				"alkisfunktion": "gfk"
+			},
+			"srid": "5652",
+			"tags": {
+				"building:source": "OpenData Land Nordrhein-Westfalen - Hausumringe"
+			}
+		},
+		"all": {
+			"type": "multi",
+			"list": [ "kreisgt", "nrw" ]
 		}
 	}
 }
