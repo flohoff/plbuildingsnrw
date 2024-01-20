@@ -13,7 +13,7 @@
 			},
 			"srid": "5652",
 			"tags": {
-				"building:source": "OpenData Land Nordrhein-Westfalen - Hausumringe"
+				"source:building": "OpenData Land Nordrhein-Westfalen - Hausumringe"
 			}
 		},
 		"all": {
