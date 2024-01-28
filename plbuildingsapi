@@ -139,7 +139,7 @@ sub v3_fetch($self, $datasetname, $debug) {
 	}
 
 	if ($dataset->{type} eq 'database')	{
-		my $mp=outline_fetch($lat, $lon, $dataset, $debug);
+		my $mp=outline_fetch($lat, $lon, $datasetname, $debug);
 		if (defined($mp)) {
 			return $self->render(data => $mp->osmxml($debug), format => "xml");
 		}
