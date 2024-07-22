@@ -55,7 +55,7 @@ Unzip it and load it into your new database with *ogr2ogr*
 
 	ogr2ogr -f "PostgreSQL" \
 		-nlt MULTIPOLYGON \
-		-a_srs "EPSG:5652" \
+		-a_srs "EPSG:25832" \
 		-nln "hu_nrw" \
 		PG:"dbname=hu_nrw" \
 		hu_shp.shp
@@ -64,3 +64,39 @@ Now you should be ready and this command should return an *osmxml* file:
 
 	curl "https://localhost/plbuildingsnrw/v1?lat=51.904858&lon=8.3486155&daDta_source=bdot&search_distance=3.0"
 
+
+Kataster Kreis Gütersloh
+========================
+
+Download
+
+	https://geoportal.kreis-guetersloh.de/opendata/planen_bauen_kataster/ALKIS_Guetersloh_EPSG25832_SHAPE.zip
+
+Extract 
+
+	ogr2ogr -f "PostgreSQL" \
+		-nlt MULTIPOLYGON \
+		-a_srs "EPSG:25832" \
+		-nln "hu_kreisgt_new" \
+		PG:"dbname=plbuildings" \
+		gebaeudeBauwerk.shp
+
+Configuring JOSM
+================
+
+Install the **plbuildings** plugin from the JOSM plugins repository.
+Then go to **Edit** -> **Preferences** -> **Advanced Preferences**
+and search for **plbuildings.server_url** and replace it
+with 
+
+	https://osm.zz.de/zzbuildings/v3/all/
+
+when using Germany Northrhine-Westfalia, Kreis Gütersloh etc.
+
+Alternatively you can use the "zzbuilding" plugin which is basically
+plbuildings renamed and checking of additional attributes removed
+and a changed default URI.
+
+See 
+
+	https://github.com/flohoff/josm-zzbuildings-plugin
