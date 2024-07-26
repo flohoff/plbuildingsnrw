@@ -66,6 +66,19 @@ sub sql_string_build {
 	return $sqlstring
 }
 
+sub buildinglevels {
+	my ($row, $mp, $value) = @_;
+	$mp->{log}->debug(sprintf("Buildinglevels %s", $value));
+
+	my $levels=$row->{$value};
+
+	if (!defined($levels)) {
+		return;
+	}
+
+	$mp->tags_add({ 'building:levels' => $levels });
+}
+
 sub alkisfunktion {
 	my ($row, $mp, $value) = @_;
 
@@ -115,8 +128,9 @@ sub outline_fetch {
 
 		if ($k eq 'alkisfunktion') {
 			alkisfunktion($row, $mp, $v);
+		} elsif ($k eq 'buildinglevels') {
+			buildinglevels($row, $mp, $v);
 		}
-
 	}
 
 	$mp->tags_add($dataset->{tags});
