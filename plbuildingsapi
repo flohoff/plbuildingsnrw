@@ -47,7 +47,8 @@ sub sql_string_build {
 	}
 
 	my $sqlstring=sprintf("select %s
-			st_asgeojson(ST_Transform(%s, 4326)) geojson
+			st_asgeojson(ST_Transform(%s, 4326)) geojson,
+			ST_Area(%s) area
 		from	%s
 		where   ST_Intersects(%s,
 				ST_Transform(
@@ -59,11 +60,27 @@ sub sql_string_build {
 		limit 1",
 		$debugcolumns,
 		$dataset->{geometrycolumn},
+		$dataset->{geometrycolumn},
 		$dataset->{table},
 		$dataset->{geometrycolumn},
 		$dataset->{srid});
 
 	return $sqlstring
+}
+
+# Fixup garages by size - lesser 40m² garage otherwise garages
+sub garagesbysize {
+	my ($row, $mp, $value) = @_;
+
+	if ($mp->tag_value('building') !~ /^garages?$/) {
+		return
+	}
+
+	if ($row->{area} > $value) {
+		$mp->tags_add({ building => 'garages'});
+	} else {
+		$mp->tags_add({ building => 'garage'});
+	}
 }
 
 sub buildinglevels {
@@ -130,6 +147,8 @@ sub outline_fetch {
 			alkisfunktion($row, $mp, $v);
 		} elsif ($k eq 'buildinglevels') {
 			buildinglevels($row, $mp, $v);
+		} elsif ($k eq 'garagesbysize') {
+			garagesbysize($row, $mp, $v);
 		}
 	}
 

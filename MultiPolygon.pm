@@ -78,6 +78,11 @@ package MultiPolygon;
 		}
 	}
 
+	sub tag_value {
+		my ($self, $tag) = @_;
+		return $self->{tags}{$tag};
+	}
+
 	sub tags {
 		my ($self, $debug) = @_;
 
